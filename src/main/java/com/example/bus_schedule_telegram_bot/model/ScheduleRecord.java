@@ -21,7 +21,10 @@ public class ScheduleRecord {
     private String id;
     private boolean fromCity;
     private boolean throughHannusivka;
-    private boolean isWeekend;
+    private DayStatus dayStatus;
+    private String note;
+    private String driverPhoneNumber;
+    private String busStateNumber;
 
     @DateTimeFormat(pattern = "HH:mm")
     private LocalTime time;

@@ -24,7 +24,7 @@ public class MainMenuService {
 
         final ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
         keyboardMarkup.setSelective(false);
-        keyboardMarkup.setResizeKeyboard(true);
+        keyboardMarkup.setResizeKeyboard(false);
         keyboardMarkup.setOneTimeKeyboard(false);
 
         List<KeyboardRow> keyboardRows = new ArrayList<>();
@@ -46,13 +46,6 @@ public class MainMenuService {
 
     private SendMessage createMessageWithKeyboard(final long chatId, String textMessage,
                                                   final ReplyKeyboardMarkup keyboardMarkup) {
-
-        final SendMessage sendMessage = new SendMessage();
-        sendMessage.setChatId(chatId);
-        sendMessage.enableMarkdown(true);
-        sendMessage.setText(textMessage);
-        sendMessage.setReplyMarkup(keyboardMarkup);
-
-        return sendMessage;
+        return new SendMessage().setChatId(chatId).setReplyMarkup(keyboardMarkup).setText(textMessage).enableMarkdown(true);
     }
 }

@@ -1,5 +1,6 @@
 package com.example.bus_schedule_telegram_bot.service.data;
 
+import com.example.bus_schedule_telegram_bot.model.DayStatus;
 import com.example.bus_schedule_telegram_bot.model.ScheduleRecord;
 import com.example.bus_schedule_telegram_bot.repository.ScheduleRecordMongoRepo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,8 +26,8 @@ public class ScheduleRecordService {
         return scheduleRecordMongoRepo.save(scheduleRecord);
     }
 
-    public List<ScheduleRecord> findByFromCityAndThroughHannusivkaAndWeekend(boolean fromCity, boolean throughHannusivka, boolean isWeekend) {
-        return scheduleRecordMongoRepo.getByFromCityAndThroughHannusivkaAndWeekend(fromCity, throughHannusivka, isWeekend);
+    public List<ScheduleRecord> findByFromCityAndThroughHannusivka(boolean fromCity, boolean throughHannusivka) {
+        return scheduleRecordMongoRepo.getByFromCityAndThroughHannusivka(fromCity, throughHannusivka);
     }
 
 }
