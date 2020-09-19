@@ -15,14 +15,16 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class TelegramFacade {
     private final MainMenuService menuService;
     private final DirectionChoiceService directionChoiceService;
     private final ScheduleService scheduleService;
-    private boolean isFromCity = false;
-    private boolean isNearest = false;
+    private Map<Long, MenuState> messageMenuStateMap;
+    private final Map<Long, Map<Long, MenuState>> chatIdMessageMenuStateMap = new HashMap<>();
 
     public TelegramFacade(MainMenuService menuService, DirectionChoiceService directionChoiceService, ScheduleService scheduleService) {
         this.menuService = menuService;
@@ -30,73 +32,103 @@ public class TelegramFacade {
         this.scheduleService = scheduleService;
     }
 
-
     public BotApiMethod<?> handleUpdate(Update update) {
 
         if (update.hasCallbackQuery()) {
+            if (!chatIdMessageMenuStateMap.containsKey(update.getCallbackQuery().getMessage().getChatId())) {
+                chatIdMessageMenuStateMap.put(update.getCallbackQuery().getMessage().getChatId(), new HashMap<>());
+            }
+
             return processCallbackQuery(update.getCallbackQuery());
         } else if (update.hasMessage() && update.getMessage().hasText()) {
+            if (!chatIdMessageMenuStateMap.containsKey(update.getMessage().getChatId())) {
+                chatIdMessageMenuStateMap.put(update.getMessage().getChatId(), new HashMap<>());
+            }
+
             return handleInputMessage(update.getMessage());
         } else
             return menuService.getMainMenuMessage(update.getMessage().getChatId(), "Будь ласка оберіть один із пунктів головного меню!");
 
     }
 
-    //TODO flags isNearest and isFromCity insert into map where key is chatID
-
     private SendMessage handleInputMessage(Message message) {
 
-        SendMessage sendMessage;
         final long chatId = message.getChatId();
-        String direction = "Оберіть напрямок:";
+        final long messageId = message.getMessageId();
+
+        String directionText = "Оберіть напрямок:";
+        messageMenuStateMap = chatIdMessageMenuStateMap.get(chatId);
+
+        switch (MenuState.valueOf(message.getText())){
+            case NEXT_FROM_CITY:
+        }
 
         if (message.getText().equals("/start")) {
-            sendMessage = menuService.getMainMenuMessage(chatId, "Вітаю! Оберіть один із пунктів головного меню!");
+            return menuService.getMainMenuMessage(chatId, "Вітаю! Оберіть один із пунктів головного меню!");
         } else if (message.getText().equals(MenuState.SCHEDULE_FROM_CITY.getTitle())) {
-            isNearest = false;
-            isFromCity = true;
-            sendMessage = directionChoiceService.getDirectionMessage(chatId, direction);
-        } else if (message.getText().equals(MenuState.SCHEDULE_FROM_VILLAGE.getTitle())) {
-            isNearest = false;
-            isFromCity = false;
-            sendMessage = directionChoiceService.getDirectionMessage(chatId, direction);
-        } else if (message.getText().equals(MenuState.NEXT_FROM_CITY.getTitle())) {
-            isNearest = true;
-            isFromCity = true;
-            sendMessage = directionChoiceService.getDirectionMessage(chatId, direction);
-        } else if (message.getText().equals(MenuState.NEXT_FROM_VILLAGE.getTitle())) {
-            isNearest = true;
-            isFromCity = false;
-            sendMessage = directionChoiceService.getDirectionMessage(chatId, direction);
-        } else sendMessage = menuService.getMainMenuMessage(chatId, "Будь ласка оберіть один із пунктів головного меню!");
 
-        return sendMessage;
+            messageMenuStateMap.put(messageId, MenuState.SCHEDULE_FROM_CITY);
+
+            return directionChoiceService.getDirectionMessage(chatId, directionText).setReplyToMessageId(message.getMessageId());
+        } else if (message.getText().equals(MenuState.SCHEDULE_FROM_VILLAGE.getTitle())) {
+
+            messageMenuStateMap.put(messageId, MenuState.SCHEDULE_FROM_VILLAGE);
+
+            return directionChoiceService.getDirectionMessage(chatId, directionText).setReplyToMessageId(message.getMessageId());
+        } else if (message.getText().equals(MenuState.NEXT_FROM_CITY.getTitle())) {
+
+            messageMenuStateMap.put(messageId, MenuState.NEXT_FROM_CITY);
+
+            return directionChoiceService.getDirectionMessage(chatId, directionText).setReplyToMessageId(message.getMessageId());
+        } else if (message.getText().equals(MenuState.NEXT_FROM_VILLAGE.getTitle())) {
+
+            messageMenuStateMap.put(messageId, MenuState.NEXT_FROM_VILLAGE);
+
+            return directionChoiceService.getDirectionMessage(chatId, directionText).setReplyToMessageId(message.getMessageId());
+        } else
+            return menuService.getMainMenuMessage(chatId, "Будь ласка оберіть один із пунктів головного меню!");
+
     }
 
     private BotApiMethod<?> processCallbackQuery(CallbackQuery callbackQuery) {
 
-       final long chatId = callbackQuery.getMessage().getChatId();
+        final long chatId = callbackQuery.getMessage().getChatId();
+        final long repliedMessageId = callbackQuery.getMessage().getReplyToMessage().getMessageId();
+        boolean isNext = false;
+        boolean isFromCity = false;
 
         EditMessageText editMessageText = new EditMessageText();
-
         DayStatus todayDayStatus = (LocalDate.now().getDayOfWeek().equals(DayOfWeek.SATURDAY) || LocalDate.now().getDayOfWeek().equals(DayOfWeek.SUNDAY)) ?
                 DayStatus.WEEKEND : DayStatus.WORKDAY;
+        MenuState menuState = messageMenuStateMap.remove(repliedMessageId);
 
-        if (callbackQuery.getData().equals("buttonHannusivka")) {
-            if (isNearest) {
-                return editMessageText.setMessageId(callbackQuery.getMessage().getMessageId()).setChatId(chatId)
-                        .setText(scheduleService.formNearestBusDeparture(isFromCity, true, todayDayStatus).toString());
-            } else
-                return editMessageText.setMessageId(callbackQuery.getMessage().getMessageId()).setChatId(chatId)
-                        .setText(scheduleService.formSchedule(isFromCity, true, todayDayStatus).toString());
-        } else {
-            if (isNearest) {
-                return editMessageText.setMessageId(callbackQuery.getMessage().getMessageId()).setChatId(chatId)
-                        .setText(scheduleService.formNearestBusDeparture(isFromCity, false, todayDayStatus).toString());
-            } else
-                return editMessageText.setMessageId(callbackQuery.getMessage().getMessageId()).setChatId(chatId)
-                        .setText(scheduleService.formSchedule(isFromCity, false, todayDayStatus).toString());
+        switch (menuState) {
+            case NEXT_FROM_CITY -> {
+                isNext = true;
+                isFromCity = true;
+            }
+            case NEXT_FROM_VILLAGE -> isNext = true;
+            case SCHEDULE_FROM_CITY -> isFromCity = true;
         }
 
+        if (callbackQuery.getData().equals("buttonHannusivka")) {
+            if (isNext) {
+                return editMessageText.setMessageId(callbackQuery.getMessage().getMessageId())
+                        .setChatId(chatId)
+                        .setText(scheduleService.formNearestBusDeparture(isFromCity, true, todayDayStatus).toString());
+            } else
+                return editMessageText.setMessageId(callbackQuery.getMessage().getMessageId())
+                        .setChatId(chatId)
+                        .setText(scheduleService.formSchedule(isFromCity, true, todayDayStatus).toString());
+        } else {
+            if (isNext) {
+                return editMessageText.setMessageId(callbackQuery.getMessage().getMessageId())
+                        .setChatId(chatId)
+                        .setText(scheduleService.formNearestBusDeparture(isFromCity, false, todayDayStatus).toString());
+            } else
+                return editMessageText.setMessageId(callbackQuery.getMessage().getMessageId())
+                        .setChatId(chatId)
+                        .setText(scheduleService.formSchedule(isFromCity, false, todayDayStatus).toString());
+        }
     }
 }
