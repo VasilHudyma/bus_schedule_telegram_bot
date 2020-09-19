@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,8 +30,8 @@ public class ScheduleService {
                 .filter(scheduleRecord -> scheduleRecord.getDayStatus().equals(dayStatus) || scheduleRecord.getDayStatus().equals(DayStatus.ALL))
                 .sorted(Comparator.comparing(ScheduleRecord::getTime))
                 .forEach(r -> stringBuilder
-                .append(r.getTime().minusHours(calculateDifferenceBetweenTimezone()))
-                .append("\n"));
+                        .append(r.getTime().minusHours(calculateDifferenceBetweenTimezone()))
+                        .append("\n"));
 
         return stringBuilder;
     }
@@ -42,19 +43,22 @@ public class ScheduleService {
                 .append(" та їдуть через ").append(isThroughHannusivka ? "Ганнусівку:" : "Єзупіль:").append("\n\n");
 
 
-        scheduleRecordService.findByFromCityAndThroughHannusivka(isFromCity, isThroughHannusivka).stream()
+        List<ScheduleRecord> records = scheduleRecordService.findByFromCityAndThroughHannusivka(isFromCity, isThroughHannusivka).stream()
                 .filter(scheduleRecord -> scheduleRecord.getDayStatus().equals(dayStatus) || scheduleRecord.getDayStatus().equals(DayStatus.ALL))
                 .sorted(Comparator.comparing(ScheduleRecord::getTime))
                 .filter(scheduleRecord -> scheduleRecord.getTime().minusHours(calculateDifferenceBetweenTimezone()).isAfter(LocalTime.now(ZoneId.of("Europe/Kiev"))))
                 .limit(2)
-                .collect(Collectors.toList())
-                .forEach(scheduleRecord -> stringBuilder.append(scheduleRecord.getTime().minusHours(calculateDifferenceBetweenTimezone()))
-                        .append("\n"));
+                .collect(Collectors.toList());
+
+        if (records.size() > 0) {
+            records.forEach(scheduleRecord -> stringBuilder.append(scheduleRecord.getTime().minusHours(calculateDifferenceBetweenTimezone()))
+                    .append("\n"));
+        } else stringBuilder.delete(0, stringBuilder.length()).append("На жаль сьогодні більше немає рейсів.");
 
         return stringBuilder;
     }
 
     private long calculateDifferenceBetweenTimezone() {
-        return LocalTime.now(ZoneId.of("Europe/Kiev")).getHour() - LocalTime.now(ZoneId.of("UTC")).getHour();
+        return 0;// LocalTime.now(ZoneId.of("Europe/Kiev")).getHour() - LocalTime.now(ZoneId.of("UTC")).getHour();
     }
 }

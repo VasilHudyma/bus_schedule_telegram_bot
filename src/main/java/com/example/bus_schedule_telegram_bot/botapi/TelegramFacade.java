@@ -1,10 +1,12 @@
 package com.example.bus_schedule_telegram_bot.botapi;
 
 import com.example.bus_schedule_telegram_bot.model.DayStatus;
+import com.example.bus_schedule_telegram_bot.model.UserData;
 import com.example.bus_schedule_telegram_bot.service.DirectionChoiceService;
 import com.example.bus_schedule_telegram_bot.service.MainMenuService;
 import com.example.bus_schedule_telegram_bot.service.MenuState;
 import com.example.bus_schedule_telegram_bot.service.ScheduleService;
+import com.example.bus_schedule_telegram_bot.service.data.UserDataService;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -12,6 +14,7 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageTe
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.User;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -23,13 +26,16 @@ public class TelegramFacade {
     private final MainMenuService menuService;
     private final DirectionChoiceService directionChoiceService;
     private final ScheduleService scheduleService;
+    private final UserDataService userDataService;
+
     private Map<Long, MenuState> messageMenuStateMap;
     private final Map<Long, Map<Long, MenuState>> chatIdMessageMenuStateMap = new HashMap<>();
 
-    public TelegramFacade(MainMenuService menuService, DirectionChoiceService directionChoiceService, ScheduleService scheduleService) {
+    public TelegramFacade(MainMenuService menuService, DirectionChoiceService directionChoiceService, ScheduleService scheduleService, UserDataService userDataService) {
         this.menuService = menuService;
         this.directionChoiceService = directionChoiceService;
         this.scheduleService = scheduleService;
+        this.userDataService = userDataService;
     }
 
     public BotApiMethod<?> handleUpdate(Update update) {
@@ -59,8 +65,15 @@ public class TelegramFacade {
         String directionText = "Оберіть напрямок:";
         messageMenuStateMap = chatIdMessageMenuStateMap.get(chatId);
 
-        switch (MenuState.valueOf(message.getText())){
-            case NEXT_FROM_CITY:
+        User user = message.getFrom();
+
+        if (!userDataService.existById(user.getId().toString())) {
+            userDataService.save(UserData.builder()
+                    .userId(user.getId().toString())
+                    .firstName(user.getFirstName())
+                    .lastName(user.getLastName())
+                    .userName(user.getUserName())
+                    .languageCode(user.getLanguageCode()).build());
         }
 
         if (message.getText().equals("/start")) {
